@@ -46,9 +46,13 @@ db.exec(`
     customer_name TEXT, customer_phone TEXT, notes TEXT,
     status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
 `);
 
-// Default data
+// ===== DEFAULT DATA =====
 db.prepare(`INSERT OR IGNORE INTO categories (id,name,name_en,icon) VALUES (?,?,?,?)`).run(1,'أدوية','Medicines','fa-pills');
 db.prepare(`INSERT OR IGNORE INTO categories (id,name,name_en,icon) VALUES (?,?,?,?)`).run(2,'شراب','Syrups','fa-tint');
 db.prepare(`INSERT OR IGNORE INTO categories (id,name,name_en,icon) VALUES (?,?,?,?)`).run(3,'أقراص','Tablets','fa-circle');
@@ -65,6 +69,27 @@ db.prepare(`INSERT OR IGNORE INTO products (id,name,category_id,price,old_price,
 db.prepare(`INSERT OR IGNORE INTO products (id,name,category_id,price,old_price,description,stock,badge) VALUES (?,?,?,?,?,?,?,?)`).run(4,'قطرة أنف أوتريفين',5,19,null,'قطرة لفتح الاحتقان','in',null);
 db.prepare(`INSERT OR IGNORE INTO products (id,name,category_id,price,old_price,description,stock,badge) VALUES (?,?,?,?,?,?,?,?)`).run(5,'كريم نيفيا',6,45,60,'كريم مرطب للبشرة','in','sale');
 db.prepare(`INSERT OR IGNORE INTO products (id,name,category_id,price,old_price,description,stock,badge) VALUES (?,?,?,?,?,?,?,?)`).run(6,'بروفين 400mg',3,18,null,'مضاد للالتهابات ومسكن','in',null);
+
+// Default settings
+const defaultSettings = {
+  pharmacy_name: 'صيدلية عليوة',
+  pharmacy_name_en: 'Elewa Pharmacy',
+  phone: '201026354290',
+  whatsapp: '201026354290',
+  facebook: 'https://facebook.com',
+  address: 'شارع الجمهورية، أسيوط، مصر',
+  working_hours: 'السبت - الخميس: 9ص - 11م',
+  hero_title: 'صحتك تهمنا',
+  hero_title_colored: 'في صيدلية عليوة',
+  hero_subtitle: 'نقدم لك أفضل الأدوية والمستحضرات الطبية بأسعار منافسة.',
+  hero_badge1: 'منتجات أصلية',
+  hero_badge2: 'توصيل سريع',
+  footer_about: 'نهدف إلى تقديم أفضل الخدمات الصحية والمنتجات الطبية بجودة عالية وأسعار منافسة.',
+};
+
+Object.entries(defaultSettings).forEach(([key, value]) => {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value);
+});
 
 // ===== AUTH =====
 const auth = (req, res, next) => {
@@ -94,6 +119,48 @@ app.post('/api/login', (req, res) => {
     return res.status(401).json({ error: 'بيانات خاطئة' });
   const token = jwt.sign({ id: admin.id }, JWT_SECRET, { expiresIn: '24h' });
   res.json({ token });
+});
+
+// ===== SETTINGS =====
+app.get('/api/settings', (req, res) => {
+  const rows = db.prepare('SELECT * FROM settings').all();
+  const settings = {};
+  rows.forEach(r => settings[r.key] = r.value);
+  res.json(settings);
+});
+
+app.put('/api/settings', auth, (req, res) => {
+  const settings = req.body;
+  const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+  Object.entries(settings).forEach(([key, value]) => {
+    stmt.run(key, value);
+  });
+  res.json({ success: true });
+});
+
+// Change password
+app.put('/api/change-password', auth, (req, res) => {
+  const { current_password, new_password } = req.body;
+  const admin = db.prepare('SELECT * FROM admins WHERE id=?').get(req.user.id);
+  if (!bcrypt.compareSync(current_password, admin.password))
+    return res.status(401).json({ error: 'كلمة المرور الحالية غير صحيحة' });
+  const newHash = bcrypt.hashSync(new_password, 10);
+  db.prepare('UPDATE admins SET password=? WHERE id=?').run(newHash, req.user.id);
+  res.json({ success: true });
+});
+
+// Change username
+app.put('/api/change-username', auth, (req, res) => {
+  const { new_username, password } = req.body;
+  const admin = db.prepare('SELECT * FROM admins WHERE id=?').get(req.user.id);
+  if (!bcrypt.compareSync(password, admin.password))
+    return res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
+  try {
+    db.prepare('UPDATE admins SET username=? WHERE id=?').run(new_username, req.user.id);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(400).json({ error: 'اسم المستخدم موجود بالفعل' });
+  }
 });
 
 // Categories
