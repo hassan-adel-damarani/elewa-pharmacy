@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = 'elewa-pharmacy-2024';
 
 // ===== Gemini API Key — ضع الـ key بتاعك هنا =====
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'YOUR_GEMINI_KEY_HERE';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyCIw3MT16CeCq3pQhb8ew_8axNlQNJ0agw';
 
 app.use(cors());
 app.use(express.json());
@@ -80,7 +80,7 @@ const insertSetting = db.prepare(`INSERT OR IGNORE INTO site_settings (key,value
   ['hero_subtitle', 'في صيدلية عليوة'],
   ['hero_desc', 'نقدم لك أفضل الأدوية والمستحضرات الطبية بأسعار منافسة.'],
   ['footer_desc', 'نهدف إلى تقديم أفضل الخدمات الصحية والمنتجات الطبية بجودة عالية وأسعار منافسة.'],
-  ['gemini_key', ''],
+  ['gemini_key', 'AIzaSyCIw3MT16CeCq3pQhb8ew_8axNlQNJ0agw'],
 ].forEach(([k,v]) => insertSetting.run(k, v));
 
 // Default products
