@@ -1,20 +1,20 @@
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+const Database = require('better-sqlite3');
+const db = new Database('./pharmacy.db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = 'elewa-pharmacy-2024';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+// ===== Gemini API Key — ضع الـ key بتاعك هنا =====
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'YOUR_GEMINI_KEY_HERE';
 
 app.use(cors());
 app.use(express.json());
@@ -24,88 +24,75 @@ app.use('/uploads', express.static('uploads'));
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
 // ===== DATABASE SETUP =====
-async function initDB() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL, name_en TEXT, icon TEXT DEFAULT 'fa-pills'
-    );
-    CREATE TABLE IF NOT EXISTS products (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL, category_id INTEGER, price REAL NOT NULL,
-      old_price REAL, description TEXT, image TEXT,
-      stock TEXT DEFAULT 'in', badge TEXT, featured INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS offers (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL, description TEXT, discount INTEGER DEFAULT 0,
-      active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS admins (
-      id SERIAL PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL, password TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS orders (
-      id SERIAL PRIMARY KEY,
-      customer_name TEXT, customer_phone TEXT, notes TEXT,
-      status TEXT DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    );
-  `);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL, name_en TEXT, icon TEXT DEFAULT 'fa-pills'
+  );
+  CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL, category_id INTEGER, price REAL NOT NULL,
+    old_price REAL, description TEXT, image TEXT,
+    stock TEXT DEFAULT 'in', badge TEXT, featured INTEGER DEFAULT 0,
+    drug_eye_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL, description TEXT, discount INTEGER DEFAULT 0,
+    active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL, password TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_name TEXT, customer_phone TEXT, notes TEXT,
+    status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS site_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+`);
 
-  // Default categories
-  const cats = [
-    [1,'أدوية','Medicines','fa-pills'],
-    [2,'شراب','Syrups','fa-tint'],
-    [3,'أقراص','Tablets','fa-circle'],
-    [4,'حقن','Injections','fa-syringe'],
-    [5,'قطرات','Drops','fa-eye-dropper'],
-    [6,'تجميل','Cosmetics','fa-spa']
-  ];
-  for (const [id,name,name_en,icon] of cats) {
-    await pool.query(`INSERT INTO categories (id,name,name_en,icon) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`, [id,name,name_en,icon]);
-  }
+// Default data
+const insertCat = db.prepare(`INSERT OR IGNORE INTO categories (id,name,name_en,icon) VALUES (?,?,?,?)`);
+[[1,'أدوية','Medicines','fa-pills'],[2,'شراب','Syrups','fa-tint'],[3,'أقراص','Tablets','fa-circle'],
+ [4,'حقن','Injections','fa-syringe'],[5,'قطرات','Drops','fa-eye-dropper'],[6,'تجميل','Cosmetics','fa-spa']]
+.forEach(r => insertCat.run(...r));
 
-  // Default admin
-  const hash = bcrypt.hashSync('admin123', 10);
-  await pool.query(`INSERT INTO admins (username,password) VALUES ($1,$2) ON CONFLICT (username) DO NOTHING`, ['admin', hash]);
+const hash = bcrypt.hashSync('admin123', 10);
+db.prepare(`INSERT OR IGNORE INTO admins (username,password) VALUES (?,?)`).run('admin', hash);
 
-  // Default products
-  const prods = [
-    [1,'باراسيتامول 500mg',3,12,null,'مسكن للألم وخافض للحرارة','in',null],
-    [2,'أموكسيسيلين 250mg',1,35,45,'مضاد حيوي واسع الطيف','in','sale'],
-    [3,'شراب فيتامين C',2,28,38,'شراب مقوي للمناعة','in','sale'],
-    [4,'قطرة أنف أوتريفين',5,19,null,'قطرة لفتح الاحتقان','in',null],
-    [5,'كريم نيفيا',6,45,60,'كريم مرطب للبشرة','in','sale'],
-    [6,'بروفين 400mg',3,18,null,'مضاد للالتهابات ومسكن','in',null]
-  ];
-  for (const [id,name,cat,price,old,desc,stock,badge] of prods) {
-    await pool.query(`INSERT INTO products (id,name,category_id,price,old_price,description,stock,badge) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING`,
-      [id,name,cat,price,old,desc,stock,badge]);
-  }
+// Default site settings
+const insertSetting = db.prepare(`INSERT OR IGNORE INTO site_settings (key,value) VALUES (?,?)`);
+[
+  ['pharmacy_name', 'صيدلية عليوة'],
+  ['pharmacy_name_en', 'Elewa Pharmacy'],
+  ['phone', '+20 123 456 7890'],
+  ['whatsapp', '201026354290'],
+  ['facebook', 'https://www.facebook.com/share/1ELkoj5dxn/'],
+  ['address', 'شارع الجمهورية، القاهرة، مصر'],
+  ['hours', 'مفتوح 24 ساعة'],
+  ['hero_title', 'صحتك تهمنا'],
+  ['hero_subtitle', 'في صيدلية عليوة'],
+  ['hero_desc', 'نقدم لك أفضل الأدوية والمستحضرات الطبية بأسعار منافسة.'],
+  ['footer_desc', 'نهدف إلى تقديم أفضل الخدمات الصحية والمنتجات الطبية بجودة عالية وأسعار منافسة.'],
+  ['gemini_key', ''],
+].forEach(([k,v]) => insertSetting.run(k, v));
 
-  // Default settings
-  const defaults = {
-    pharmacy_name:'صيدلية عليوة', pharmacy_name_en:'Elewa Pharmacy',
-    phone:'201026354290', whatsapp:'201026354290',
-    facebook:'https://facebook.com',
-    address:'شارع الجمهورية، أسيوط، مصر',
-    working_hours:'السبت - الخميس: 9ص - 11م',
-    hero_title:'صحتك تهمنا', hero_title_colored:'في صيدلية عليوة',
-    hero_subtitle:'نقدم لك أفضل الأدوية والمستحضرات الطبية بأسعار منافسة.',
-    hero_badge1:'منتجات أصلية', hero_badge2:'توصيل سريع',
-    footer_about:'نهدف إلى تقديم أفضل الخدمات الصحية والمنتجات الطبية بجودة عالية وأسعار منافسة.'
-  };
-  for (const [key,value] of Object.entries(defaults)) {
-    await pool.query(`INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING`, [key,value]);
-  }
-
-  console.log('✅ Database initialized');
-}
+// Default products
+const insertProd = db.prepare(`INSERT OR IGNORE INTO products (id,name,category_id,price,old_price,description,stock,badge) VALUES (?,?,?,?,?,?,?,?)`);
+[
+  [1,'باراسيتامول 500mg',3,12,null,'مسكن للألم وخافض للحرارة','in',null],
+  [2,'أموكسيسيلين 250mg',1,35,45,'مضاد حيوي واسع الطيف','in','sale'],
+  [3,'شراب فيتامين C',2,28,38,'شراب مقوي للمناعة','in','sale'],
+  [4,'قطرة أنف أوتريفين',5,19,null,'قطرة لفتح الاحتقان','in',null],
+  [5,'كريم نيفيا',6,45,60,'كريم مرطب للبشرة','in','sale'],
+  [6,'بروفين 400mg',3,18,null,'مضاد للالتهابات ومسكن','in',null],
+].forEach(r => insertProd.run(...r));
 
 // ===== AUTH =====
 const auth = (req, res, next) => {
@@ -125,198 +112,344 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// ===== EXCEL UPLOAD =====
+const xlsxUpload = multer({ dest: 'uploads/tmp/' });
+
 // ===== ROUTES =====
 
 // Login
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
-  const result = await pool.query('SELECT * FROM admins WHERE username=$1', [username]);
-  const admin = result.rows[0];
+  const admin = db.prepare('SELECT * FROM admins WHERE username=?').get(username);
   if (!admin || !bcrypt.compareSync(password, admin.password))
     return res.status(401).json({ error: 'بيانات خاطئة' });
   const token = jwt.sign({ id: admin.id }, JWT_SECRET, { expiresIn: '24h' });
   res.json({ token });
 });
 
-// Settings
-app.get('/api/settings', async (req, res) => {
-  const result = await pool.query('SELECT * FROM settings');
-  const settings = {};
-  result.rows.forEach(r => settings[r.key] = r.value);
-  res.json(settings);
-});
-
-app.put('/api/settings', auth, async (req, res) => {
-  const settings = req.body;
-  for (const [key, value] of Object.entries(settings)) {
-    await pool.query(`INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2`, [key, value]);
-  }
+// Change credentials
+app.put('/api/admin/credentials', auth, (req, res) => {
+  const { username, old_password, new_password } = req.body;
+  const admin = db.prepare('SELECT * FROM admins WHERE id=?').get(req.user.id);
+  if (!bcrypt.compareSync(old_password, admin.password))
+    return res.status(401).json({ error: 'كلمة المرور القديمة غير صحيحة' });
+  const hashed = bcrypt.hashSync(new_password, 10);
+  db.prepare('UPDATE admins SET username=?, password=? WHERE id=?').run(username || admin.username, hashed, req.user.id);
   res.json({ success: true });
-});
-
-// Change password
-app.put('/api/change-password', auth, async (req, res) => {
-  const { current_password, new_password } = req.body;
-  const result = await pool.query('SELECT * FROM admins WHERE id=$1', [req.user.id]);
-  const admin = result.rows[0];
-  if (!bcrypt.compareSync(current_password, admin.password))
-    return res.status(401).json({ error: 'كلمة المرور الحالية غير صحيحة' });
-  const newHash = bcrypt.hashSync(new_password, 10);
-  await pool.query('UPDATE admins SET password=$1 WHERE id=$2', [newHash, req.user.id]);
-  res.json({ success: true });
-});
-
-// Change username
-app.put('/api/change-username', auth, async (req, res) => {
-  const { new_username, password } = req.body;
-  const result = await pool.query('SELECT * FROM admins WHERE id=$1', [req.user.id]);
-  const admin = result.rows[0];
-  if (!bcrypt.compareSync(password, admin.password))
-    return res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
-  try {
-    await pool.query('UPDATE admins SET username=$1 WHERE id=$2', [new_username, req.user.id]);
-    res.json({ success: true });
-  } catch(e) {
-    res.status(400).json({ error: 'اسم المستخدم موجود بالفعل' });
-  }
 });
 
 // Categories
-app.get('/api/categories', async (req, res) => {
-  const result = await pool.query('SELECT * FROM categories');
-  res.json(result.rows);
+app.get('/api/categories', (req, res) => {
+  res.json(db.prepare('SELECT * FROM categories').all());
 });
 
 // Products
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', (req, res) => {
   const { category, search } = req.query;
   let sql = `SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE 1=1`;
   const params = [];
-  if (category && category !== 'all') { sql += ` AND p.category_id=$${params.length+1}`; params.push(category); }
-  if (search) { sql += ` AND p.name ILIKE $${params.length+1}`; params.push(`%${search}%`); }
+  if (category && category !== 'all') { sql += ' AND p.category_id=?'; params.push(category); }
+  if (search) { sql += ' AND p.name LIKE ?'; params.push(`%${search}%`); }
   sql += ' ORDER BY p.created_at DESC';
-  const result = await pool.query(sql, params);
-  res.json(result.rows);
+  res.json(db.prepare(sql).all(...params));
 });
 
-app.get('/api/products/:id', async (req, res) => {
-  const result = await pool.query(`SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE p.id=$1`, [req.params.id]);
-  if (!result.rows[0]) return res.status(404).json({ error: 'Not found' });
-  res.json(result.rows[0]);
+app.get('/api/products/:id', (req, res) => {
+  const row = db.prepare(`SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE p.id=?`).get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  res.json(row);
 });
 
-app.post('/api/products', auth, upload.single('image'), async (req, res) => {
+app.post('/api/products', auth, upload.single('image'), (req, res) => {
   const { name, category_id, price, old_price, description, stock, badge } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
-  const result = await pool.query(
-    `INSERT INTO products (name,category_id,price,old_price,description,image,stock,badge) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-    [name, category_id, price, old_price||null, description, image, stock||'in', badge||null]
-  );
-  res.json({ id: result.rows[0].id });
+  const result = db.prepare(`INSERT INTO products (name,category_id,price,old_price,description,image,stock,badge) VALUES (?,?,?,?,?,?,?,?)`)
+    .run(name, category_id, price, old_price || null, description, image, stock || 'in', badge || null);
+  res.json({ id: result.lastInsertRowid });
 });
 
-app.put('/api/products/:id', auth, upload.single('image'), async (req, res) => {
+app.put('/api/products/:id', auth, upload.single('image'), (req, res) => {
   const { name, category_id, price, old_price, description, stock, badge } = req.body;
-  const row = await pool.query('SELECT image FROM products WHERE id=$1', [req.params.id]);
-  const image = req.file ? `/uploads/${req.file.filename}` : row.rows[0]?.image;
-  await pool.query(
-    `UPDATE products SET name=$1,category_id=$2,price=$3,old_price=$4,description=$5,image=$6,stock=$7,badge=$8 WHERE id=$9`,
-    [name, category_id, price, old_price||null, description, image, stock, badge, req.params.id]
-  );
+  const row = db.prepare('SELECT image FROM products WHERE id=?').get(req.params.id);
+  const image = req.file ? `/uploads/${req.file.filename}` : row?.image;
+  db.prepare(`UPDATE products SET name=?,category_id=?,price=?,old_price=?,description=?,image=?,stock=?,badge=? WHERE id=?`)
+    .run(name, category_id, price, old_price || null, description, image, stock, badge, req.params.id);
   res.json({ success: true });
 });
 
-app.delete('/api/products/:id', auth, async (req, res) => {
-  await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
+app.delete('/api/products/:id', auth, (req, res) => {
+  db.prepare('DELETE FROM products WHERE id=?').run(req.params.id);
   res.json({ success: true });
 });
 
-// Offers
-app.get('/api/offers', async (req, res) => {
-  const result = await pool.query('SELECT * FROM offers WHERE active=1');
-  res.json(result.rows);
-});
-
-app.post('/api/offers', auth, async (req, res) => {
-  const { title, description, discount } = req.body;
-  const result = await pool.query(
-    'INSERT INTO offers (title,description,discount) VALUES ($1,$2,$3) RETURNING id',
-    [title, description, discount||0]
-  );
-  res.json({ id: result.rows[0].id });
-});
-
-app.delete('/api/offers/:id', auth, async (req, res) => {
-  await pool.query('DELETE FROM offers WHERE id=$1', [req.params.id]);
-  res.json({ success: true });
-});
-
-// Orders
-app.post('/api/orders', async (req, res) => {
-  const { customer_name, customer_phone, notes } = req.body;
-  const result = await pool.query(
-    'INSERT INTO orders (customer_name,customer_phone,notes) VALUES ($1,$2,$3) RETURNING id',
-    [customer_name, customer_phone, notes]
-  );
-  res.json({ id: result.rows[0].id });
-});
-
-app.get('/api/orders', auth, async (req, res) => {
-  const result = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
-  res.json(result.rows);
-});
-
-// Stats
-app.get('/api/stats', auth, async (req, res) => {
-  const products = await pool.query('SELECT COUNT(*) as c FROM products');
-  const orders = await pool.query('SELECT COUNT(*) as c FROM orders');
-  const in_stock = await pool.query(`SELECT COUNT(*) as c FROM products WHERE stock='in'`);
-  res.json({
-    products: products.rows[0].c,
-    orders: orders.rows[0].c,
-    in_stock: in_stock.rows[0].c
-  });
-});
-// Drug Search Route
-const { searchDrugEye } = require('./drugSearch');
-
-app.get('/api/drug-search', async (req, res) => {
-  const { q } = req.query;
-  if (!q || q.length < 2) return res.json([]);
-  
+// ===== EXCEL IMPORT (B.Connect) =====
+app.post('/api/import-excel', auth, xlsxUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'لم يتم رفع ملف' });
   try {
-    // البحث في Drug Eye
-    const drugEyeResults = await searchDrugEye(q);
-    
-    // نشوف إيه اللي موجود في الصيدلية
-    const pharmacyProducts = await pool.query(
-      `SELECT name, price, stock FROM products WHERE name ILIKE $1`,
-      [`%${q}%`]
-    );
-    
-    // نضم النتيجتين
-    const results = drugEyeResults.map(drug => {
-      const inPharmacy = pharmacyProducts.rows.find(p =>
-        p.name.toLowerCase().includes(drug.name.toLowerCase().substring(0, 10))
-      );
-      return {
-        ...drug,
-        in_pharmacy: !!inPharmacy,
-        pharmacy_price: inPharmacy ? inPharmacy.price : null,
-        pharmacy_stock: inPharmacy ? inPharmacy.stock : null
-      };
-    });
+    const XLSX = require('xlsx');
+    const wb = XLSX.readFile(req.file.path);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: 'Search failed' });
+    let updated = 0, added = 0, errors = 0;
+
+    for (const row of rows) {
+      // دعم أعمدة B.Connect المختلفة
+      const name = row['اسم الصنف'] || row['Item Name'] || row['Name'] || row['name'] || '';
+      const price = parseFloat(row['السعر'] || row['Price'] || row['price'] || 0);
+      const qty = parseInt(row['الكمية'] || row['Quantity'] || row['qty'] || row['Qty'] || 0);
+      const stock = qty > 0 ? (qty <= 5 ? 'low' : 'in') : 'out';
+
+      if (!name) { errors++; continue; }
+
+      const existing = db.prepare('SELECT id FROM products WHERE name LIKE ?').get(`%${name}%`);
+      if (existing) {
+        db.prepare('UPDATE products SET stock=?, price=? WHERE id=?').run(stock, price || existing.price, existing.id);
+        updated++;
+      } else {
+        db.prepare('INSERT INTO products (name, price, stock, category_id) VALUES (?,?,?,1)').run(name, price || 0, stock);
+        added++;
+      }
+    }
+
+    // حذف الملف المؤقت
+    fs.unlinkSync(req.file.path);
+
+    res.json({ success: true, updated, added, errors, total: rows.length });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'خطأ في قراءة الملف: ' + e.message });
   }
 });
 
-// Start
-initDB().then(() => {
-  app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
-}).catch(err => {
-  console.error('❌ DB init failed:', err);
-  process.exit(1);
+// ===== DRUG SEARCH (AI-powered) =====
+app.get('/api/drug-search', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json({ results: [], message: '' });
+
+  // 1) ابحث في منتجات الصيدلية أولاً
+  const localResults = db.prepare(
+    `SELECT p.*, c.name as category_name FROM products p 
+     LEFT JOIN categories c ON p.category_id=c.id 
+     WHERE p.name LIKE ? OR p.description LIKE ?`
+  ).all(`%${q}%`, `%${q}%`).map(p => ({
+    name: p.name,
+    price: p.price,
+    generic: p.description || '',
+    company: '',
+    category: p.category_name || '',
+    in_pharmacy: true,
+    local_id: p.id
+  }));
+
+  // 2) اجيب AI message من Gemini لو في Key
+  let aiMessage = '';
+  const geminiKey = process.env.GEMINI_API_KEY ||
+    db.prepare("SELECT value FROM site_settings WHERE key='gemini_key'").get()?.value || '';
+
+  if (geminiKey && geminiKey.length > 10) {
+    try {
+      aiMessage = await askGemini(q, geminiKey);
+    } catch (e) {
+      console.error('Gemini error:', e.message);
+    }
+  }
+
+  // 3) ابحث في Drug Eye
+  let drugEyeResults = [];
+  try {
+    drugEyeResults = await searchDrugEye(q);
+  } catch (e) {
+    console.error('DrugEye error:', e.message);
+  }
+
+  // 4) دمج النتائج — الصيدلية أولاً
+  const localNames = new Set(localResults.map(r => r.name.toLowerCase()));
+  const mergedDrugEye = drugEyeResults.map(d => ({
+    ...d,
+    in_pharmacy: localNames.has(d.name.toLowerCase())
+  }));
+
+  // إزالة التكرار
+  const finalDrugEye = mergedDrugEye.filter(d => !localNames.has(d.name.toLowerCase()));
+
+  res.json({
+    results: [...localResults, ...finalDrugEye],
+    message: aiMessage
+  });
+});
+
+// ===== Gemini AI =====
+async function askGemini(query, apiKey) {
+  return new Promise((resolve, reject) => {
+    const prompt = `أنت مساعد صيدلاني مصري متخصص. المستخدم بحث عن: "${query}"
+    
+اكتب رداً قصيراً مفيداً بالعربية (جملة أو جملتين فقط) يشرح:
+- إذا كان البحث عن عَرَض (مثل برد، صداع، ضغط) — اذكر أشهر أنواع أدويته
+- إذا كان اسم دواء — اذكر استخدامه الرئيسي
+- لا تذكر جرعات ولا توصيات طبية محددة
+
+الرد يجب أن يكون مفيداً وبسيطاً للمستخدم العادي.`;
+
+    const body = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 150, temperature: 0.3 }
+    });
+
+    const options = {
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    };
+
+    const req = https.request(options, r => {
+      let data = '';
+      r.on('data', c => data += c);
+      r.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const text = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          resolve(text.trim());
+        } catch (e) { resolve(''); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// ===== Drug Eye Scraper =====
+async function searchDrugEye(query) {
+  return new Promise((resolve) => {
+    const url = `/api/v1/drugs/search?q=${encodeURIComponent(query)}&limit=12`;
+    const options = {
+      hostname: 'www.drugeye.net',
+      path: url,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json, text/html, */*',
+        'Accept-Language': 'ar,en;q=0.9',
+        'Referer': 'https://www.drugeye.net/'
+      }
+    };
+
+    const req = https.request(options, r => {
+      let data = '';
+      r.on('data', c => data += c);
+      r.on('end', () => {
+        try {
+          // محاولة parse JSON
+          const json = JSON.parse(data);
+          if (Array.isArray(json)) {
+            resolve(json.slice(0, 12).map(d => ({
+              name: d.trade_name || d.name || d.tradeName || '',
+              price: d.price || d.current_price || 0,
+              generic: d.generic_name || d.genericName || '',
+              company: d.company || d.manufacturer || '',
+              category: d.category || d.atc_name || '',
+              in_pharmacy: false
+            })).filter(d => d.name));
+          } else {
+            resolve(parseHtmlDrugs(data, query));
+          }
+        } catch (e) {
+          resolve(parseHtmlDrugs(data, query));
+        }
+      });
+    });
+    req.on('error', () => resolve([]));
+    req.setTimeout(8000, () => { req.destroy(); resolve([]); });
+    req.end();
+  });
+}
+
+// HTML parser fallback
+function parseHtmlDrugs(html, query) {
+  const results = [];
+  // استخراج بيانات من HTML بـ regex بسيط
+  const itemRegex = /<div[^>]*class="[^"]*drug[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+  const nameRegex = /class="[^"]*name[^"]*"[^>]*>([^<]+)</i;
+  const priceRegex = /(\d+[\.,]?\d*)\s*(?:جنيه|ج\.م|EGP|LE)/i;
+
+  let match;
+  while ((match = itemRegex.exec(html)) !== null && results.length < 12) {
+    const block = match[1];
+    const nameMatch = nameRegex.exec(block);
+    const priceMatch = priceRegex.exec(block);
+    if (nameMatch) {
+      results.push({
+        name: nameMatch[1].trim(),
+        price: priceMatch ? parseFloat(priceMatch[1]) : 0,
+        generic: '',
+        company: '',
+        category: '',
+        in_pharmacy: false
+      });
+    }
+  }
+
+  // لو مفيش نتائج، حاول تعمل بحث بـ endpoint تاني
+  return results;
+}
+
+// ===== Offers =====
+app.get('/api/offers', (req, res) => {
+  res.json(db.prepare('SELECT * FROM offers WHERE active=1').all());
+});
+
+app.post('/api/offers', auth, (req, res) => {
+  const { title, description, discount } = req.body;
+  const result = db.prepare('INSERT INTO offers (title,description,discount) VALUES (?,?,?)').run(title, description, discount || 0);
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.delete('/api/offers/:id', auth, (req, res) => {
+  db.prepare('DELETE FROM offers WHERE id=?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ===== Orders =====
+app.post('/api/orders', (req, res) => {
+  const { customer_name, customer_phone, notes } = req.body;
+  const result = db.prepare('INSERT INTO orders (customer_name,customer_phone,notes) VALUES (?,?,?)').run(customer_name, customer_phone, notes);
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.get('/api/orders', auth, (req, res) => {
+  res.json(db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all());
+});
+
+// ===== Stats =====
+app.get('/api/stats', auth, (req, res) => {
+  const products = db.prepare('SELECT COUNT(*) as c FROM products').get().c;
+  const orders = db.prepare('SELECT COUNT(*) as c FROM orders').get().c;
+  const in_stock = db.prepare("SELECT COUNT(*) as c FROM products WHERE stock='in'").get().c;
+  res.json({ products, orders, in_stock });
+});
+
+// ===== Site Settings =====
+app.get('/api/settings', (req, res) => {
+  const rows = db.prepare('SELECT key, value FROM site_settings').all();
+  const settings = {};
+  rows.forEach(r => settings[r.key] = r.value);
+  res.json(settings);
+});
+
+app.put('/api/settings', auth, (req, res) => {
+  const updates = req.body;
+  const stmt = db.prepare('INSERT OR REPLACE INTO site_settings (key,value) VALUES (?,?)');
+  const updateMany = db.transaction((obj) => {
+    for (const [key, value] of Object.entries(obj)) {
+      stmt.run(key, value);
+    }
+  });
+  updateMany(updates);
+  res.json({ success: true });
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
 });
