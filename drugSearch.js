@@ -48,12 +48,29 @@ async function searchDrugEye(query) {
       // اسم الدواء — أزرق + colspan=1
       if (style.includes('color:Blue') && tds.length > 1) {
         if (current) results.push(current);
+        
+        // جرب تجيب الصورة من الصف نفسه أو من الصف اللي قبله
+        let imageUrl = null;
+        const prevRow = $2(row).prev();
+        if (prevRow.length) {
+          const img = prevRow.find('img');
+          if (img.length) {
+            let src = img.attr('src');
+            if (src) {
+              if (src.startsWith('/')) src = 'https://drugeye.pharorg.com' + src;
+              else if (!src.startsWith('http')) src = 'https://drugeye.pharorg.com/drugeyeapp/android-search/' + src;
+              imageUrl = src;
+            }
+          }
+        }
+        
         current = {
           name: firstTd.text().trim(),
           price: $2(tds[1]).text().trim(),
           generic: null,
           category: null,
-          company: null
+          company: null,
+          image: imageUrl
         };
       }
       // اسم علمي — أسود

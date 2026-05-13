@@ -277,51 +277,104 @@ app.get('/api/stats', auth, async (req, res) => {
     in_stock: in_stock.rows[0].c
   });
 });
-// Drug Search Route
+// ===== SMART SEARCH — بحث موحد (محلي + Drug Eye + AI) =====
 const { searchDrugEye } = require('./drugSearch');
 const { getSearchTerms } = require('./aiSearch');
 
-app.get('/api/drug-search', async (req, res) => {
+app.get('/api/smart-search', async (req, res) => {
   const { q } = req.query;
-  if (!q || q.length < 2) return res.json({ results: [], message: '' });
+  if (!q || q.length < 2) return res.json({ local: [], drugs: [], ai_message: '' });
 
   try {
-    // Step 1: AI يفهم الاستعلام
-    const { terms, message } = await getSearchTerms(q);
+    // Step 1: AI يفهم الاستعلام ويحوله لـ terms
+    const { terms, message: aiMessage } = await getSearchTerms(q);
 
-    // Step 2: ابحث في Drug Eye عن كل term
-    const allResults = [];
-    const seen = new Set();
+    // Step 2: ابحث في المنتجات المحلية (بالعربي والإنجليزي)
+    const localResults = await pool.query(`
+      SELECT p.*, c.name as category_name 
+      FROM products p 
+      LEFT JOIN categories c ON p.category_id=c.id 
+      WHERE p.name ILIKE $1 OR p.description ILIKE $1
+      ORDER BY p.featured DESC, p.created_at DESC
+      LIMIT 12
+    `, [`%${q}%`]);
 
-    for (const term of terms.slice(0, 3)) {
-      const results = await searchDrugEye(term);
-      for (const r of results) {
-        if (!seen.has(r.name)) {
-          seen.add(r.name);
-          allResults.push(r);
-        }
+    // Step 3: ابحث في Drug Eye عن كل term
+    const allDrugs = [];
+    const seenDrugs = new Set();
+    const drugPromises = terms.slice(0, 3).map(term => searchDrugEye(term));
+    const drugResults = await Promise.all(drugPromises);
+
+    for (const results of drugResults) {
+      for (const drug of results) {
+        if (!drug.name || seenDrugs.has(drug.name)) continue;
+        seenDrugs.add(drug.name);
+        allDrugs.push(drug);
       }
     }
 
-    // Step 3: شوف إيه المتوفر في الصيدلية
-    const pharmacyProducts = await pool.query(`SELECT name, price, stock FROM products`);
-
-    const finalResults = allResults.map(drug => {
-      const inPharmacy = pharmacyProducts.rows.find(p =>
-        p.name.toLowerCase().includes(drug.name.toLowerCase().substring(0, 8)) ||
-        drug.name.toLowerCase().includes(p.name.toLowerCase().substring(0, 8))
-      );
+    // Step 4: ربط الأدوية بالمخزن المحلي (fuzzy match)
+    const pharmacyProducts = await pool.query(`SELECT id, name, price, stock, image FROM products`);
+    
+    const linkedDrugs = allDrugs.map(drug => {
+      // Fuzzy match: لو الاسم المحلي يتضمن 6 حروف من اسم الدواء أو العكس
+      const match = pharmacyProducts.rows.find(p => {
+        const pName = p.name.toLowerCase();
+        const dName = drug.name.toLowerCase();
+        // match بالاسم أو بالgeneric
+        return pName.includes(dName.substring(0, 8)) || 
+               dName.includes(pName.substring(0, 8)) ||
+               (drug.generic && pName.includes(drug.generic.toLowerCase().substring(0, 8)));
+      });
+      
       return {
-        ...drug,
-        in_pharmacy: !!inPharmacy,
-        pharmacy_price: inPharmacy ? inPharmacy.price : null,
-        pharmacy_stock: inPharmacy ? inPharmacy.stock : null
+        name: drug.name,
+        price: drug.price,
+        generic: drug.generic,
+        category: drug.category,
+        company: drug.company,
+        image: drug.image || null,  // <-- صورة من Drug Eye
+        in_pharmacy: !!match,
+        pharmacy_id: match ? match.id : null,
+        pharmacy_price: match ? match.price : null,
+        pharmacy_stock: match ? match.stock : null
       };
     });
 
-    res.json({ results: finalResults, message });
+    res.json({
+      local: localResults.rows,
+      drugs: linkedDrugs.slice(0, 12),
+      ai_message: aiMessage || '',
+      terms: terms  // للـ debugging
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error('Smart search error:', err);
+    // Fallback: بحث محلي بس
+    try {
+      const local = await pool.query(`
+        SELECT p.*, c.name as category_name 
+        FROM products p 
+        LEFT JOIN categories c ON p.category_id=c.id 
+        WHERE p.name ILIKE $1
+        LIMIT 12
+      `, [`%${q}%`]);
+      res.json({ local: local.rows, drugs: [], ai_message: '', terms: [q] });
+    } catch(e) {
+      res.status(500).json({ local: [], drugs: [], ai_message: '', error: err.message });
+    }
+  }
+});
+
+// Route القديم للـ compatibility
+app.get('/api/drug-search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json({ results: [], message: '' });
+  try {
+    const forwardRes = await fetch(`http://localhost:${PORT}/api/smart-search?q=${encodeURIComponent(q)}`);
+    const data = await forwardRes.json();
+    res.json({ results: data.drugs, message: data.ai_message });
+  } catch(e) {
     res.status(500).json({ results: [], message: '' });
   }
 });

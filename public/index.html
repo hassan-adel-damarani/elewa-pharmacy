@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+html_content = '''<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -229,8 +230,8 @@
                 </div>
             </a>
             <div class="search-container">
-                <input type="text" class="search-box" id="searchInput" placeholder="ابحث عن منتج...">
-                <button class="search-btn"><i class="fas fa-search"></i></button>
+                <input type="text" class="search-box" id="searchInput" placeholder="ابحث عن منتج أو دواء... (مثال: برد، باراسيتامول)">
+                <button class="search-btn" onclick="doSmartSearch(document.getElementById('searchInput').value.trim(), false)"><i class="fas fa-search"></i></button>
                 <div class="search-results" id="searchResults"></div>
             </div>
             <nav class="nav-links" id="navLinks">
@@ -287,25 +288,7 @@
             <div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
         </div>
     </section>
-<!-- ===== قسم البحث في أدوية مصر ===== -->
-<section style="padding:60px 24px;background:linear-gradient(135deg,#f0fdfa,#ccfbf1)" id="drug-search">
-  <div style="max-width:1280px;margin:0 auto">
-    <div class="section-header">
-      <h3>🔍 ابحث عن أي دواء في مصر</h3>
-      <p>أسعار محدثة من Drug Eye — تعرف هل الدواء متوفر في صيدليتنا أم لا</p>
-    </div>
-    <div style="max-width:600px;margin:0 auto 40px;position:relative">
-      <input type="text" id="drugSearchInput" placeholder="اكتب اسم الدواء بالإنجليزي مثل: paracetamol"
-        style="width:100%;padding:18px 60px 18px 20px;border:2px solid var(--gray-200);border-radius:50px;font-family:inherit;font-size:1rem;box-shadow:var(--shadow-lg);outline:none;transition:all 0.3s"
-        onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--gray-200)'">
-      <button onclick="searchDrugs()" 
-        style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:var(--primary);color:white;border:none;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:1.1rem">
-        <i class="fas fa-search"></i>
-      </button>
-    </div>
-    <div id="drugSearchResults" style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px"></div>
-  </div>
-</section>
+
     <section class="products-section" id="products">
         <div class="products-header">
             <div class="section-header" style="text-align: right; margin: 0">
@@ -486,41 +469,69 @@
                 grid.innerHTML = `<div class="no-results"><i class="fas fa-search"></i><h4>لا توجد منتجات</h4><p>جرب فئة أخرى أو استخدم البحث</p></div>`;
                 return;
             }
-            grid.innerHTML = products.map(p => {
-                const stockText = p.stock==='in' ? 'متوفر' : p.stock==='low' ? 'كمية محدودة' : 'غير متوفر';
-                const stockClass = p.stock==='in' ? 'in-stock' : p.stock==='low' ? 'low-stock' : 'out-stock';
-                const badgeText = p.badge==='sale'?'خصم':p.badge==='new'?'جديد':p.badge==='hot'?'الأكثر مبيعاً':'';
-                const imgContent = p.image
-                    ? `<img src="${p.image}" alt="${p.name}" onerror="this.style.display='none'">`
-                    : (EMOJIS[p.category_id] || '💊');
-                return `
-                <div class="product-card" onclick="openModal(${p.id})">
-                    <div class="product-image">
-                        ${imgContent}
-                        ${p.badge ? `<span class="product-badge badge-${p.badge}">${badgeText}</span>` : ''}
-                        <div class="product-actions">
-                            <button class="action-btn" onclick="event.stopPropagation();openModal(${p.id})">
-                                <i class="fas fa-eye"></i> عرض التفاصيل
-                            </button>
+            grid.innerHTML = products.map(p => renderProductCard(p)).join('');
+        }
+
+        function renderProductCard(p) {
+            const stockText = p.stock==='in' ? 'متوفر' : p.stock==='low' ? 'كمية محدودة' : 'غير متوفر';
+            const stockClass = p.stock==='in' ? 'in-stock' : p.stock==='low' ? 'low-stock' : 'out-stock';
+            const badgeText = p.badge==='sale'?'خصم':p.badge==='new'?'جديد':p.badge==='hot'?'الأكثر مبيعاً':'';
+            const imgContent = p.image
+                ? `<img src="${p.image}" alt="${p.name}" onerror="this.style.display='none';this.parentElement.innerHTML='${EMOJIS[p.category_id]||'💊'}'">`
+                : (EMOJIS[p.category_id] || '💊');
+            return `
+            <div class="product-card" onclick="openModal(${p.id})">
+                <div class="product-image">
+                    ${imgContent}
+                    ${p.badge ? `<span class="product-badge badge-${p.badge}">${badgeText}</span>` : ''}
+                    <div class="product-actions">
+                        <button class="action-btn" onclick="event.stopPropagation();openModal(${p.id})">
+                            <i class="fas fa-eye"></i> عرض التفاصيل
+                        </button>
+                    </div>
+                </div>
+                <div class="product-info">
+                    <div class="product-category">${p.category_name || ''}</div>
+                    <h4 class="product-name">${p.name}</h4>
+                    <p class="product-desc">${p.description || ''}</p>
+                    <div class="product-footer">
+                        <div class="product-price">
+                            ${p.old_price ? `<span class="old">${p.old_price} ج.م</span>` : ''}
+                            ${p.price} ج.م
+                        </div>
+                        <div class="stock-status ${stockClass}">
+                            <span class="stock-dot"></span>
+                            <span>${stockText}</span>
                         </div>
                     </div>
-                    <div class="product-info">
-                        <div class="product-category">${p.category_name || ''}</div>
-                        <h4 class="product-name">${p.name}</h4>
-                        <p class="product-desc">${p.description || ''}</p>
-                        <div class="product-footer">
-                            <div class="product-price">
-                                ${p.old_price ? `<span class="old">${p.old_price} ج.م</span>` : ''}
-                                ${p.price} ج.م
-                            </div>
-                            <div class="stock-status ${stockClass}">
-                                <span class="stock-dot"></span>
-                                <span>${stockText}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
+                </div>
+            </div>`;
+        }
+
+        function renderDrugCard(d) {
+            return `
+            <div style="background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:2px solid ${d.in_pharmacy ? 'var(--success)' : 'var(--gray-200)'};transition:all 0.3s;cursor:pointer" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="height:180px;background:var(--gray-50);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:16px;overflow:hidden">
+                    ${d.image ? `<img src="${d.image}" style="width:100%;height:100%;object-fit:contain;padding:20px" onerror="this.style.display='none';this.parentElement.innerHTML='💊'">` : '<span style="font-size:4rem">💊</span>'}
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+                    <h4 style="font-size:0.95rem;font-weight:700;color:var(--dark);flex:1;line-height:1.4">${d.name}</h4>
+                    <span style="font-size:1.1rem;font-weight:800;color:var(--primary-dark);margin-right:12px;white-space:nowrap">${d.price} ج.م</span>
+                </div>
+                ${d.generic ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:4px"><i class="fas fa-flask"></i> ${d.generic}</p>` : ''}
+                ${d.company ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:4px"><i class="fas fa-industry"></i> ${d.company}</p>` : ''}
+                ${d.category ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:12px"><i class="fas fa-tag"></i> ${d.category}</p>` : ''}
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--gray-100)">
+                    <span style="font-size:0.85rem;font-weight:700;color:${d.in_pharmacy ? 'var(--success)' : 'var(--warning)'}">
+                        <i class="fas ${d.in_pharmacy ? 'fa-check-circle' : 'fa-clock'}"></i>
+                        ${d.in_pharmacy ? 'متوفر في صيدليتنا ✅' : 'اطلبه وسنوفره لك 📦'}
+                    </span>
+                    <a href="https://wa.me/${PHONE}?text=مرحباً، أريد الاستفسار عن: ${encodeURIComponent(d.name)}" target="_blank"
+                        style="background:${d.in_pharmacy ? 'var(--success)' : 'var(--secondary)'};color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-size:0.85rem;font-weight:700">
+                        <i class="fab fa-whatsapp"></i> ${d.in_pharmacy ? 'اطلب الآن' : 'استفسر'}
+                    </a>
+                </div>
+            </div>`;
         }
 
         function renderOffers(offers) {
@@ -541,7 +552,6 @@
         // ===== فلترة =====
         function filterProducts(catId, catEl, tagEl) {
             currentFilter = catId;
-            // تحديث الأزرار
             document.querySelectorAll('.category-card').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('#filterTags button').forEach(b => b.classList.remove('active'));
             if (catEl) catEl.classList.add('active');
@@ -596,34 +606,163 @@
             document.body.style.overflow = '';
         }
 
-        // ===== بحث =====
+        // ===== بحث ذكي موحد (محلي + Drug Eye + AI) =====
+        let searchTimer;
         function setupSearch() {
             const input = document.getElementById('searchInput');
             const results = document.getElementById('searchResults');
-            let timer;
+            
             input.addEventListener('input', e => {
-                clearTimeout(timer);
+                clearTimeout(searchTimer);
                 const q = e.target.value.trim();
-                if (!q) { results.classList.remove('active'); loadProducts(currentFilter); return; }
-                timer = setTimeout(async () => {
-                    loadProducts(currentFilter, q);
-                    try {
-                        const res = await fetch(`${API}/api/products?search=${encodeURIComponent(q)}`);
-                        const prods = await res.json();
-                        if (!prods.length) { results.classList.remove('active'); return; }
-                        results.innerHTML = prods.slice(0,6).map(p => `
-                            <div class="search-result-item" onclick="openModal(${p.id});results.classList.remove('active');input.value=''">
-                                <img src="${p.image||''}" alt="${p.name}" onerror="this.style.display='none'">
-                                <div class="search-result-info">
-                                    <h4>${p.name}</h4>
-                                    <span>${p.price} ج.م — ${p.stock==='in'?'متوفر':'غير متوفر'}</span>
-                                </div>
-                            </div>`).join('');
-                        results.classList.add('active');
-                    } catch(e) {}
-                }, 300);
+                if (!q) { 
+                    results.classList.remove('active'); 
+                    loadProducts(currentFilter); 
+                    return; 
+                }
+                if (q.length >= 2) {
+                    searchTimer = setTimeout(() => doSmartSearch(q, true), 300);
+                }
             });
-            document.addEventListener('click', e => { if (!e.target.closest('.search-container')) results.classList.remove('active'); });
+            
+            input.addEventListener('keypress', e => {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimer);
+                    doSmartSearch(input.value.trim(), false);
+                }
+            });
+            
+            document.addEventListener('click', e => { 
+                if (!e.target.closest('.search-container')) results.classList.remove('active'); 
+            });
+        }
+
+        async function doSmartSearch(q, isAutocomplete) {
+            const results = document.getElementById('searchResults');
+            const grid = document.getElementById('productsGrid');
+            
+            if (!isAutocomplete) {
+                grid.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i><p>جاري البحث الذكي...</p></div>';
+                results.classList.remove('active');
+            }
+            
+            try {
+                const res = await fetch(`${API}/api/smart-search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                
+                // Autocomplete dropdown
+                if (isAutocomplete) {
+                    const allItems = [
+                        ...data.local.map(p => ({ type: 'local', ...p })),
+                        ...data.drugs.map(d => ({ type: 'drug', ...d }))
+                    ];
+                    
+                    if (!allItems.length) { results.classList.remove('active'); return; }
+                    
+                    results.innerHTML = allItems.slice(0, 8).map(item => {
+                        if (item.type === 'local') {
+                            return `
+                            <div class="search-result-item" onclick="openModal(${item.id});document.getElementById('searchResults').classList.remove('active');">
+                                <div style="width:40px;height:40px;border-radius:8px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:1.2rem;overflow:hidden">
+                                    ${item.image ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none';this.parentElement.innerHTML='💊'">` : '💊'}
+                                </div>
+                                <div class="search-result-info">
+                                    <h4>${item.name}</h4>
+                                    <span>${item.price} ج.م — ${item.stock==='in'?'متوفر في الصيدلية ✅':'غير متوفر ❌'}</span>
+                                </div>
+                                <span style="margin-right:auto;background:var(--primary);color:white;padding:2px 8px;border-radius:50px;font-size:0.7rem">منتج</span>
+                            </div>`;
+                        } else {
+                            return `
+                            <div class="search-result-item" onclick="showDrugDetails('${encodeURIComponent(JSON.stringify({name:item.name,price:item.price,generic:item.generic,category:item.category,company:item.company,image:item.image,in_pharmacy:item.in_pharmacy,pharmacy_price:item.pharmacy_price,pharmacy_stock:item.pharmacy_stock}))}');document.getElementById('searchResults').classList.remove('active');">
+                                <div style="width:40px;height:40px;border-radius:8px;background:var(--gray-100);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:1.2rem;overflow:hidden">
+                                    ${item.image ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none';this.parentElement.innerHTML='💊'">` : '💊'}
+                                </div>
+                                <div class="search-result-info">
+                                    <h4>${item.name}</h4>
+                                    <span>${item.price} ج.م — ${item.company || ''} ${item.in_pharmacy?'✅ متوفر عندنا':''}</span>
+                                </div>
+                                <span style="margin-right:auto;background:var(--secondary);color:white;padding:2px 8px;border-radius:50px;font-size:0.7rem">دواء</span>
+                            </div>`;
+                        }
+                    }).join('');
+                    results.classList.add('active');
+                    return;
+                }
+                
+                // عرض نتائج كاملة في الـ grid
+                let html = '';
+                
+                if (data.ai_message) {
+                    html += `<div style="grid-column:1/-1;padding:16px 24px;background:linear-gradient(135deg,var(--primary-light),#e0f2fe);border-radius:var(--radius-lg);margin-bottom:24px;display:flex;align-items:center;gap:12px">
+                        <i class="fas fa-robot" style="font-size:1.5rem;color:var(--primary)"></i>
+                        <div>
+                            <div style="font-weight:700;color:var(--primary-dark)">${data.ai_message}</div>
+                            <div style="font-size:0.85rem;color:var(--gray-500)">تم العثور على ${data.local.length} منتج محلي و ${data.drugs.length} دواء من Drug Eye</div>
+                        </div>
+                    </div>`;
+                }
+                
+                if (data.local.length) {
+                    html += `<div style="grid-column:1/-1;margin-bottom:16px"><h3 style="font-size:1.3rem;color:var(--dark);display:flex;align-items:center;gap:8px"><i class="fas fa-store" style="color:var(--primary)"></i> متوفر في صيدليتنا</h3></div>`;
+                    html += data.local.map(p => renderProductCard(p)).join('');
+                }
+                
+                if (data.drugs.length) {
+                    html += `<div style="grid-column:1/-1;margin:24px 0 16px"><h3 style="font-size:1.3rem;color:var(--dark);display:flex;align-items:center;gap:8px"><i class="fas fa-pills" style="color:var(--secondary)"></i> نتائج من Drug Eye</h3></div>`;
+                    html += data.drugs.map(d => renderDrugCard(d)).join('');
+                }
+                
+                if (!data.local.length && !data.drugs.length) {
+                    html = `<div class="no-results" style="grid-column:1/-1"><i class="fas fa-search"></i><h4>لا توجد نتائج</h4><p>جرب كلمات مختلفة أو تواصل معنا</p></div>`;
+                }
+                
+                grid.innerHTML = html;
+                document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch(e) {
+                console.error(e);
+                if (!isAutocomplete) {
+                    grid.innerHTML = '<div class="no-results" style="grid-column:1/-1"><i class="fas fa-exclamation-circle"></i><h4>خطأ في البحث</h4><p>حاول مرة أخرى</p></div>';
+                }
+            }
+        }
+
+        function showDrugDetails(encodedDrug) {
+            const d = JSON.parse(decodeURIComponent(encodedDrug));
+            const stockText = d.in_pharmacy ? 'متوفر في صيدليتنا ✅' : 'غير متوفر حالياً — اطلبه وسنوفره';
+            const stockClass = d.in_pharmacy ? 'in-stock' : 'out-stock';
+            
+            document.getElementById('modalContent').innerHTML = `
+                <div class="modal-image" style="min-height:300px">
+                    ${d.image ? `<img src="${d.image}" alt="${d.name}" style="object-fit:contain;padding:40px" onerror="this.style.display='none';this.parentElement.innerHTML='💊'">` : '💊'}
+                </div>
+                <div class="modal-details">
+                    <div class="modal-category" style="color:var(--secondary)"><i class="fas fa-pills"></i> من Drug Eye</div>
+                    <h2 class="modal-title">${d.name}</h2>
+                    <div class="modal-price">${d.price} ج.م</div>
+                    <p class="modal-desc">
+                        ${d.generic ? `<strong>الاسم العلمي:</strong> ${d.generic}<br>` : ''}
+                        ${d.company ? `<strong>الشركة:</strong> ${d.company}<br>` : ''}
+                        ${d.category ? `<strong>التصنيف:</strong> ${d.category}<br>` : ''}
+                        <br>السعر من Drug Eye — قد يختلف السعر الفعلي في الصيدلية.
+                    </p>
+                    <div class="modal-meta">
+                        <div class="meta-item"><label>الحالة</label><span class="${stockClass}">${stockText}</span></div>
+                        <div class="meta-item"><label>السعر المرجعي</label><span>${d.price} ج.م</span></div>
+                        ${d.pharmacy_price ? `<div class="meta-item"><label>سعرنا</label><span style="color:var(--primary)">${d.pharmacy_price} ج.م</span></div>` : ''}
+                    </div>
+                    <div class="modal-buttons">
+                        <a href="https://wa.me/${PHONE}?text=مرحباً، أريد الاستفسار عن: ${encodeURIComponent(d.name)}${d.in_pharmacy?' (متوفر في صيدليتكم)':''}" target="_blank" class="btn btn-whatsapp">
+                            <i class="fab fa-whatsapp"></i> ${d.in_pharmacy ? 'اطلب الآن' : 'استفسر عن التوفر'}
+                        </a>
+                        <button class="btn btn-secondary" onclick="closeModal()">
+                            <i class="fas fa-times"></i> إغلاق
+                        </button>
+                    </div>
+                </div>`;
+            document.getElementById('productModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
 
         // ===== Scroll =====
@@ -669,62 +808,12 @@
         document.getElementById('productModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
         document.addEventListener('DOMContentLoaded', init);
-        // ===== بحث أدوية مصر =====
-let drugSearchTimer;
-document.getElementById('drugSearchInput').addEventListener('keypress', e => {
-  if (e.key === 'Enter') searchDrugs();
-});
-document.getElementById('drugSearchInput').addEventListener('input', e => {
-  clearTimeout(drugSearchTimer);
-  const q = e.target.value.trim();
-  if (q.length < 2) { document.getElementById('drugSearchResults').innerHTML = ''; return; }
-  drugSearchTimer = setTimeout(() => searchDrugs(), 600);
-});
-
-async function searchDrugs() {
-  const q = document.getElementById('drugSearchInput').value.trim();
-  if (!q) return;
-  const results = document.getElementById('drugSearchResults');
-  results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary)"></i><p style="margin-top:12px;color:var(--gray-500)">جاري البحث...</p></div>';
-  try {
-   const res = await fetch(`/api/drug-search?q=${encodeURIComponent(q)}`);
-const data = await res.json();
-const drugs = data.results || data;
-const aiMessage = data.message || '';
-if (aiMessage) {
-  results.innerHTML = `<div style="grid-column:1/-1;padding:12px 20px;background:var(--primary-light);border-radius:var(--radius);color:var(--primary-dark);font-weight:600;margin-bottom:8px"><i class="fas fa-robot"></i> ${aiMessage}</div>`;
-} else {
-  results.innerHTML = '';
-}
-
-    if (!drugs.length) {
-      results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--gray-500)"><i class="fas fa-search fa-2x" style="margin-bottom:12px"></i><p>لا توجد نتائج لـ "' + q + '"</p></div>';
-      return;
-    }
-    results.innerHTML = drugs.map(d => `
-      <div style="background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:2px solid ${d.in_pharmacy ? 'var(--success)' : 'var(--gray-200)'}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <h4 style="font-size:0.95rem;font-weight:700;color:var(--dark);flex:1;line-height:1.4">${d.name}</h4>
-          <span style="font-size:1.3rem;font-weight:800;color:var(--primary-dark);margin-right:12px;white-space:nowrap">${d.price} ج.م</span>
-        </div>
-        ${d.generic ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:6px"><i class="fas fa-flask"></i> ${d.generic}</p>` : ''}
-        ${d.company ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:6px"><i class="fas fa-industry"></i> ${d.company}</p>` : ''}
-        ${d.category ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:12px"><i class="fas fa-tag"></i> ${d.category}</p>` : ''}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--gray-100)">
-          <span style="font-size:0.85rem;font-weight:700;color:${d.in_pharmacy ? 'var(--success)' : 'var(--warning)'}">
-            <i class="fas ${d.in_pharmacy ? 'fa-check-circle' : 'fa-clock'}"></i>
-            ${d.in_pharmacy ? 'متوفر في صيدليتنا ✅' : 'اطلبه وسنوفره لك 📦'}
-          </span>
-          <a href="https://wa.me/${PHONE}?text=مرحباً، أريد الاستفسار عن: ${encodeURIComponent(d.name)}" target="_blank"
-            style="background:var(--success);color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-size:0.85rem;font-weight:700">
-            <i class="fab fa-whatsapp"></i> اطلب
-          </a>
-        </div>
-      </div>`).join('');
-  } catch(e) {
-    results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--danger)"><i class="fas fa-exclamation-circle fa-2x"></i><p style="margin-top:12px">حدث خطأ، حاول مرة أخرى</p></div>';
-  }
-}
     </script>
 </body>
-</html>
+</html>'''
+
+with open('/mnt/agents/output/index.html', 'w', encoding='utf-8') as f:
+    f.write(html_content)
+
+print("Done! File saved.")
+print(f"Size: {len(html_content)} characters")
