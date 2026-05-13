@@ -1,6 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.AIzaSyCIw3MT16CeCq3pQhb8ew_8axNlQNJ0agw);
 
 async function getSearchTerms(query) {
   try {
