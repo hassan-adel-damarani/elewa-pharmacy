@@ -10,8 +10,6 @@
 :root{--green:#0d9488;--green-dark:#0f766e;--green-light:#ccfbf1;--red:#ef4444;--gold:#f59e0b;--dark:#0f172a;--gray:#64748b;--light:#f8fafc;--white:#ffffff;--border:#e2e8f0}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Cairo',sans-serif;background:var(--light);color:var(--dark);direction:rtl}
-
-/* LOGIN */
 .login-page{height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--dark),#1e293b)}
 .login-box{background:white;padding:40px;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:100%;max-width:400px;text-align:center}
 .login-icon{width:72px;height:72px;background:linear-gradient(135deg,var(--green),var(--green-dark));border-radius:20px;display:flex;align-items:center;justify-content:center;color:white;font-size:32px;margin:0 auto 20px}
@@ -30,8 +28,6 @@ body{font-family:'Cairo',sans-serif;background:var(--light);color:var(--dark);di
 .btn-warning{background:var(--gold);color:white}
 .btn-sm{padding:6px 14px;font-size:13px;border-radius:8px}
 .error-msg{color:var(--red);font-size:13px;margin-top:12px;display:none}
-
-/* DASHBOARD */
 .dashboard{display:none}
 .sidebar{position:fixed;right:0;top:0;width:250px;height:100vh;background:var(--dark);color:white;padding:0;overflow-y:auto;z-index:100}
 .sidebar-logo{padding:24px 20px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:12px}
@@ -86,6 +82,12 @@ tr:hover td{background:#f8fafc}
 .toast.success{background:var(--green)}
 .toast.error{background:var(--red)}
 .img-preview{width:80px;height:80px;border-radius:10px;object-fit:cover;margin-top:8px;display:none}
+.settings-tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:2px solid var(--border);overflow-x:auto}
+.settings-tab{padding:12px 20px;border:none;background:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:.3s;display:flex;align-items:center;gap:7px}
+.settings-tab.active{color:var(--green);border-bottom-color:var(--green)}
+.settings-section{display:none}
+.settings-section.active{display:block}
+.save-bar{margin-top:20px}
 @media(max-width:768px){.sidebar{width:100%;height:auto;position:relative}.main{margin-right:0}.form-row{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -97,8 +99,8 @@ tr:hover td{background:#f8fafc}
     <div class="login-icon"><i class="fas fa-mortar-pestle"></i></div>
     <h2>لوحة التحكم</h2>
     <p>صيدلية عليوة | Elewa Pharmacy</p>
-    <div class="form-grp"><label>اسم المستخدم</label><input type="text" id="loginUser" placeholder="admin" value="admin"></div>
-    <div class="form-grp"><label>كلمة المرور</label><input type="password" id="loginPass" placeholder="••••••••" value="admin123"></div>
+    <div class="form-grp"><label>اسم المستخدم</label><input type="text" id="loginUser" placeholder="اسم المستخدم"></div>
+    <div class="form-grp"><label>كلمة المرور</label><input type="password" id="loginPass" placeholder="كلمة المرور"></div>
     <button class="btn btn-primary" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> دخول</button>
     <p class="error-msg" id="loginErr">اسم المستخدم أو كلمة المرور غير صحيحة</p>
   </div>
@@ -109,7 +111,7 @@ tr:hover td{background:#f8fafc}
   <div class="sidebar">
     <div class="sidebar-logo">
       <div class="icon"><i class="fas fa-prescription-bottle-alt"></i></div>
-      <div><h3>صيدلية عليوة</h3><span>لوحة التحكم</span></div>
+      <div><h3 id="sidebarName">صيدلية عليوة</h3><span>لوحة التحكم</span></div>
     </div>
     <div class="sidebar-nav">
       <div class="nav-section">القائمة الرئيسية</div>
@@ -117,6 +119,7 @@ tr:hover td{background:#f8fafc}
       <button class="nav-item" onclick="showPage('products',this)"><i class="fas fa-pills"></i> المنتجات</button>
       <button class="nav-item" onclick="showPage('offers',this)"><i class="fas fa-fire"></i> العروض</button>
       <button class="nav-item" onclick="showPage('orders',this)"><i class="fas fa-shopping-cart"></i> الطلبات</button>
+      <button class="nav-item" onclick="showPage('settings',this)"><i class="fas fa-cog"></i> الإعدادات</button>
       <div class="nav-section" style="margin-top:12px">روابط</div>
       <button class="nav-item" onclick="window.open('/')"><i class="fas fa-globe"></i> عرض الموقع</button>
     </div>
@@ -126,9 +129,10 @@ tr:hover td{background:#f8fafc}
   </div>
 
   <div class="main">
+
     <!-- OVERVIEW -->
     <div class="section-page active" id="page-overview">
-      <div class="page-head"><h2>نظرة عامة</h2><p>مرحباً بك في لوحة تحكم صيدلية عليوة</p></div>
+      <div class="page-head"><h2>نظرة عامة</h2><p>مرحباً بك في لوحة التحكم</p></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon green"><i class="fas fa-pills"></i></div><div><div class="stat-num" id="statProds">-</div><div class="stat-lbl">إجمالي المنتجات</div></div></div>
         <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-check-circle"></i></div><div><div class="stat-num" id="statStock">-</div><div class="stat-lbl">منتج متاح</div></div></div>
@@ -136,7 +140,7 @@ tr:hover td{background:#f8fafc}
       </div>
       <div class="card">
         <div class="card-head"><h3>آخر المنتجات</h3><button class="btn btn-primary btn-sm" onclick="showPage('products',null);openAddProduct()"><i class="fas fa-plus"></i> منتج جديد</button></div>
-        <div class="card-body" style="padding:0"><table><thead><tr><th>المنتج</th><th>التصنيف</th><th>السعر</th><th>الحالة</th></tr></thead><tbody id="overviewTable"></tbody></table></div>
+        <div style="padding:0"><table><thead><tr><th>المنتج</th><th>التصنيف</th><th>السعر</th><th>الحالة</th></tr></thead><tbody id="overviewTable"></tbody></table></div>
       </div>
     </div>
 
@@ -145,8 +149,8 @@ tr:hover td{background:#f8fafc}
       <div class="page-head"><h2>إدارة المنتجات</h2><p>إضافة وتعديل وحذف المنتجات</p></div>
       <div class="card">
         <div class="card-head"><h3 id="prodTableTitle">المنتجات</h3><button class="btn btn-primary btn-sm" onclick="openAddProduct()"><i class="fas fa-plus"></i> منتج جديد</button></div>
-        <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap">
-          <input type="text" id="prodSearch" placeholder="بحث في المنتجات..." style="padding:9px 14px;border:1px solid var(--border);border-radius:10px;font-family:inherit;flex:1;min-width:200px" oninput="filterProdsTable()">
+        <div style="padding:16px 24px;border-bottom:1px solid var(--border)">
+          <input type="text" id="prodSearch" placeholder="بحث في المنتجات..." style="padding:9px 14px;border:1px solid var(--border);border-radius:10px;font-family:inherit;width:100%" oninput="filterProdsTable()">
         </div>
         <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>الاسم</th><th>التصنيف</th><th>السعر</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="prodsTable"></tbody></table></div>
       </div>
@@ -169,6 +173,90 @@ tr:hover td{background:#f8fafc}
         <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>الملاحظات</th><th>التاريخ</th></tr></thead><tbody id="ordersTable"></tbody></table></div>
       </div>
     </div>
+
+    <!-- SETTINGS -->
+    <div class="section-page" id="page-settings">
+      <div class="page-head"><h2>الإعدادات</h2><p>تحكم في كل تفاصيل موقعك</p></div>
+      <div class="settings-tabs">
+        <button class="settings-tab active" onclick="showSettingsTab('contact',this)"><i class="fas fa-phone"></i> التواصل</button>
+        <button class="settings-tab" onclick="showSettingsTab('hero',this)"><i class="fas fa-home"></i> الرئيسية</button>
+        <button class="settings-tab" onclick="showSettingsTab('identity',this)"><i class="fas fa-store"></i> هوية الصيدلية</button>
+        <button class="settings-tab" onclick="showSettingsTab('account',this)"><i class="fas fa-user-shield"></i> الحساب</button>
+      </div>
+
+      <!-- التواصل -->
+      <div class="settings-section active" id="tab-contact">
+        <div class="card">
+          <div class="card-head"><h3><i class="fas fa-phone" style="color:var(--green)"></i> معلومات التواصل</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-grp"><label><i class="fab fa-whatsapp" style="color:#25d366"></i> رقم الواتساب</label><input type="text" id="s_whatsapp" placeholder="201000000000"></div>
+              <div class="form-grp"><label><i class="fas fa-phone" style="color:var(--green)"></i> رقم الهاتف</label><input type="text" id="s_phone" placeholder="201000000000"></div>
+            </div>
+            <div class="form-grp"><label><i class="fab fa-facebook" style="color:#1877f2"></i> رابط الفيسبوك</label><input type="text" id="s_facebook" placeholder="https://facebook.com/..."></div>
+            <div class="form-grp"><label><i class="fas fa-map-marker-alt" style="color:var(--red)"></i> العنوان</label><input type="text" id="s_address" placeholder="شارع الجمهورية، أسيوط، مصر"></div>
+            <div class="form-grp"><label><i class="fas fa-clock" style="color:var(--gold)"></i> ساعات العمل</label><input type="text" id="s_working_hours" placeholder="السبت - الخميس: 9ص - 11م"></div>
+            <div class="save-bar"><button class="btn btn-primary" style="width:auto" onclick="saveSettings('contact')"><i class="fas fa-save"></i> حفظ التغييرات</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- الصفحة الرئيسية -->
+      <div class="settings-section" id="tab-hero">
+        <div class="card">
+          <div class="card-head"><h3><i class="fas fa-home" style="color:var(--green)"></i> نصوص الصفحة الرئيسية</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-grp"><label>العنوان الرئيسي</label><input type="text" id="s_hero_title" placeholder="صحتك تهمنا"></div>
+              <div class="form-grp"><label>العنوان الملون</label><input type="text" id="s_hero_title_colored" placeholder="في صيدلية عليوة"></div>
+            </div>
+            <div class="form-grp"><label>الوصف</label><textarea id="s_hero_subtitle" placeholder="نقدم لك أفضل الأدوية..."></textarea></div>
+            <div class="form-row">
+              <div class="form-grp"><label>شارة 1</label><input type="text" id="s_hero_badge1" placeholder="منتجات أصلية"></div>
+              <div class="form-grp"><label>شارة 2</label><input type="text" id="s_hero_badge2" placeholder="توصيل سريع"></div>
+            </div>
+            <div class="save-bar"><button class="btn btn-primary" style="width:auto" onclick="saveSettings('hero')"><i class="fas fa-save"></i> حفظ التغييرات</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- هوية الصيدلية -->
+      <div class="settings-section" id="tab-identity">
+        <div class="card">
+          <div class="card-head"><h3><i class="fas fa-store" style="color:var(--green)"></i> هوية الصيدلية</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-grp"><label>اسم الصيدلية (عربي)</label><input type="text" id="s_pharmacy_name" placeholder="صيدلية عليوة"></div>
+              <div class="form-grp"><label>اسم الصيدلية (إنجليزي)</label><input type="text" id="s_pharmacy_name_en" placeholder="Elewa Pharmacy"></div>
+            </div>
+            <div class="form-grp"><label>وصف الفوتر</label><textarea id="s_footer_about" placeholder="نهدف إلى تقديم أفضل الخدمات..."></textarea></div>
+            <div class="save-bar"><button class="btn btn-primary" style="width:auto" onclick="saveSettings('identity')"><i class="fas fa-save"></i> حفظ التغييرات</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- الحساب -->
+      <div class="settings-section" id="tab-account">
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-head"><h3><i class="fas fa-user" style="color:var(--green)"></i> تغيير اسم المستخدم</h3></div>
+          <div class="card-body">
+            <div class="form-grp"><label>اسم المستخدم الجديد</label><input type="text" id="newUsername" placeholder="اسم المستخدم الجديد"></div>
+            <div class="form-grp"><label>كلمة المرور الحالية (للتأكيد)</label><input type="password" id="usernameConfirmPass" placeholder="كلمة المرور"></div>
+            <button class="btn btn-primary" style="width:auto" onclick="changeUsername()"><i class="fas fa-user-edit"></i> تغيير اسم المستخدم</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3><i class="fas fa-lock" style="color:var(--red)"></i> تغيير كلمة المرور</h3></div>
+          <div class="card-body">
+            <div class="form-grp"><label>كلمة المرور الحالية</label><input type="password" id="currentPass" placeholder="كلمة المرور الحالية"></div>
+            <div class="form-grp"><label>كلمة المرور الجديدة</label><input type="password" id="newPass" placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"></div>
+            <div class="form-grp"><label>تأكيد كلمة المرور</label><input type="password" id="confirmPass" placeholder="أعد كتابة كلمة المرور"></div>
+            <button class="btn btn-primary" style="width:auto;background:var(--red)" onclick="changePassword()"><i class="fas fa-lock"></i> تغيير كلمة المرور</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -224,6 +312,7 @@ tr:hover td{background:#f8fafc}
 const API = '';
 let token = localStorage.getItem('adminToken');
 let allProds = [];
+let siteSettings = {};
 
 if (token) showDashboard();
 
@@ -232,7 +321,7 @@ async function doLogin() {
   const password = document.getElementById('loginPass').value;
   try {
     const res = await fetch(`${API}/api/login`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({username, password})
     });
     const data = await res.json();
@@ -249,10 +338,7 @@ async function doLogin() {
 function showDashboard() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('dashboard').style.display = 'flex';
-  loadStats();
-  loadProds();
-  loadOffers();
-  loadOrders();
+  loadStats(); loadProds(); loadOffers(); loadOrders(); loadSettings();
 }
 
 function doLogout() {
@@ -266,6 +352,129 @@ function showPage(page, btn) {
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
   if (btn) btn.classList.add('active');
+}
+
+function showSettingsTab(tab, btn) {
+  document.querySelectorAll('.settings-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.settings-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ===== SETTINGS =====
+async function loadSettings() {
+  try {
+    const res = await fetch(`${API}/api/settings`);
+    siteSettings = await res.json();
+    fillSettingsForm();
+    updateSidebarName();
+  } catch(e) {}
+}
+
+function fillSettingsForm() {
+  const s = siteSettings;
+  const fields = {
+    's_whatsapp': s.whatsapp, 's_phone': s.phone, 's_facebook': s.facebook,
+    's_address': s.address, 's_working_hours': s.working_hours,
+    's_hero_title': s.hero_title, 's_hero_title_colored': s.hero_title_colored,
+    's_hero_subtitle': s.hero_subtitle, 's_hero_badge1': s.hero_badge1, 's_hero_badge2': s.hero_badge2,
+    's_pharmacy_name': s.pharmacy_name, 's_pharmacy_name_en': s.pharmacy_name_en,
+    's_footer_about': s.footer_about
+  };
+  Object.entries(fields).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val) el.value = val;
+  });
+}
+
+function updateSidebarName() {
+  document.getElementById('sidebarName').textContent = siteSettings.pharmacy_name || 'صيدلية عليوة';
+}
+
+async function saveSettings(tab) {
+  let data = {};
+  if (tab === 'contact') {
+    data = {
+      whatsapp: document.getElementById('s_whatsapp').value,
+      phone: document.getElementById('s_phone').value,
+      facebook: document.getElementById('s_facebook').value,
+      address: document.getElementById('s_address').value,
+      working_hours: document.getElementById('s_working_hours').value,
+    };
+  } else if (tab === 'hero') {
+    data = {
+      hero_title: document.getElementById('s_hero_title').value,
+      hero_title_colored: document.getElementById('s_hero_title_colored').value,
+      hero_subtitle: document.getElementById('s_hero_subtitle').value,
+      hero_badge1: document.getElementById('s_hero_badge1').value,
+      hero_badge2: document.getElementById('s_hero_badge2').value,
+    };
+  } else if (tab === 'identity') {
+    data = {
+      pharmacy_name: document.getElementById('s_pharmacy_name').value,
+      pharmacy_name_en: document.getElementById('s_pharmacy_name_en').value,
+      footer_about: document.getElementById('s_footer_about').value,
+    };
+  }
+  try {
+    const res = await fetch(`${API}/api/settings`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+      siteSettings = {...siteSettings, ...data};
+      updateSidebarName();
+      showToast('✅ تم حفظ الإعدادات بنجاح!', 'success');
+    }
+  } catch(e) { showToast('حدث خطأ', 'error'); }
+}
+
+async function changePassword() {
+  const current = document.getElementById('currentPass').value;
+  const newPass = document.getElementById('newPass').value;
+  const confirm = document.getElementById('confirmPass').value;
+  if (!current || !newPass) { showToast('أدخل كلمة المرور الحالية والجديدة', 'error'); return; }
+  if (newPass !== confirm) { showToast('كلمة المرور الجديدة غير متطابقة', 'error'); return; }
+  if (newPass.length < 6) { showToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error'); return; }
+  try {
+    const res = await fetch(`${API}/api/change-password`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body: JSON.stringify({current_password: current, new_password: newPass})
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ تم تغيير كلمة المرور!', 'success');
+      document.getElementById('currentPass').value = '';
+      document.getElementById('newPass').value = '';
+      document.getElementById('confirmPass').value = '';
+    } else {
+      showToast(data.error || 'حدث خطأ', 'error');
+    }
+  } catch(e) { showToast('حدث خطأ', 'error'); }
+}
+
+async function changeUsername() {
+  const newUsername = document.getElementById('newUsername').value;
+  const password = document.getElementById('usernameConfirmPass').value;
+  if (!newUsername || !password) { showToast('أدخل اسم المستخدم الجديد وكلمة المرور', 'error'); return; }
+  try {
+    const res = await fetch(`${API}/api/change-username`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body: JSON.stringify({new_username: newUsername, password})
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ تم تغيير اسم المستخدم!', 'success');
+      document.getElementById('newUsername').value = '';
+      document.getElementById('usernameConfirmPass').value = '';
+    } else {
+      showToast(data.error || 'حدث خطأ', 'error');
+    }
+  } catch(e) { showToast('حدث خطأ', 'error'); }
 }
 
 async function loadStats() {
@@ -294,8 +503,7 @@ function filterProdsTable() {
 }
 
 function renderProdsTable(list) {
-  const tbody = document.getElementById('prodsTable');
-  tbody.innerHTML = list.map(p=>`
+  document.getElementById('prodsTable').innerHTML = list.map(p=>`
     <tr>
       <td>${p.id}</td>
       <td><strong>${p.name}</strong></td>
@@ -361,8 +569,7 @@ async function saveProd() {
   try {
     const url = id ? `${API}/api/products/${id}` : `${API}/api/products`;
     const method = id ? 'PUT' : 'POST';
-    const res = await fetch(url, {method, headers:{'Authorization':`Bearer ${token}`}, body:fd});
-    await res.json();
+    await fetch(url, {method, headers:{'Authorization':`Bearer ${token}`}, body:fd});
     closeProdModal();
     loadProds();
     loadStats();
@@ -373,8 +580,7 @@ async function saveProd() {
 async function deleteProd(id) {
   if (!confirm('هل تريد حذف هذا المنتج؟')) return;
   await fetch(`${API}/api/products/${id}`, {method:'DELETE', headers:{'Authorization':`Bearer ${token}`}});
-  loadProds();
-  loadStats();
+  loadProds(); loadStats();
   showToast('تم حذف المنتج', 'success');
 }
 
@@ -409,10 +615,9 @@ async function saveOffer() {
   if (!title) { showToast('أدخل عنوان العرض', 'error'); return; }
   await fetch(`${API}/api/offers`, {
     method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-    body:JSON.stringify({title, description, discount})
+    body: JSON.stringify({title, description, discount})
   });
-  closeOfferModal();
-  loadOffers();
+  closeOfferModal(); loadOffers();
   showToast('تم إضافة العرض', 'success');
 }
 
@@ -442,10 +647,7 @@ async function loadOrders() {
 
 function previewImg(input) {
   const img = document.getElementById('imgPreview');
-  if (input.files[0]) {
-    img.src = URL.createObjectURL(input.files[0]);
-    img.style.display = 'block';
-  }
+  if (input.files[0]) { img.src = URL.createObjectURL(input.files[0]); img.style.display = 'block'; }
 }
 
 function showToast(msg, type='success') {
