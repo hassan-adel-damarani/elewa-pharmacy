@@ -565,6 +565,15 @@ app.get('/api/autocomplete', (req, res) => {
   `).all(`%${q}%`, `%${q}%`, `${q}%`);
   res.json(results);
 });
+app.get('/api/test-ai', async (req, res) => {
+  try {
+    const { getSearchTerms } = require('./aiSearch');
+    const result = await getSearchTerms('برد');
+    res.json({ success: true, result });
+  } catch(e) {
+    res.json({ success: false, error: e.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
