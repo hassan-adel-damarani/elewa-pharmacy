@@ -7,14 +7,9 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 async function searchDrugEye(query) {
   try {
-    // Step 1: GET page to get VIEWSTATE
     const get = await axios.get(
       'https://drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx',
-      {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        httpsAgent,
-        timeout: 10000
-      }
+      { headers: { 'User-Agent': 'Mozilla/5.0' }, httpsAgent, timeout: 10000 }
     );
 
     const $1 = cheerio.load(get.data);
@@ -23,16 +18,9 @@ async function searchDrugEye(query) {
     const ev  = $1('#__EVENTVALIDATION').val();
     const cookies = get.headers['set-cookie'] || [];
 
-    // Step 2: POST with search query
     const post = await axios.post(
       `https://drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx?search=${encodeURIComponent(query)}`,
-      qs.stringify({
-        '__VIEWSTATE': vs,
-        '__VIEWSTATEGENERATOR': vsg,
-        '__EVENTVALIDATION': ev,
-        'ttt': query,
-        'b1': 'search'
-      }),
+      qs.stringify({ '__VIEWSTATE': vs, '__VIEWSTATEGENERATOR': vsg, '__EVENTVALIDATION': ev, 'ttt': query, 'b1': 'search' }),
       {
         headers: {
           'User-Agent': 'Mozilla/5.0',
@@ -45,42 +33,44 @@ async function searchDrugEye(query) {
       }
     );
 
-    // Step 3: Parse results
     const $2 = cheerio.load(post.data);
     const results = [];
-    const rows = $2('#MyTable tr');
-    let current = {};
+    let current = null;
 
-    rows.each((i, row) => {
+    $2('#MyTable tr').each((i, row) => {
       const tds = $2(row).find('td');
-      if (tds.length === 0) return;
+      if (!tds.length) return;
 
       const firstTd = $2(tds[0]);
       const style = firstTd.attr('style') || '';
+      const colspan = firstTd.attr('colspan') || '1';
 
-      // اسم الدواء (لون أزرق)
-      if (style.includes('color:Blue')) {
-        if (current.name) results.push(current);
+      // اسم الدواء — أزرق + colspan=1
+      if (style.includes('color:Blue') && tds.length > 1) {
+        if (current) results.push(current);
         current = {
           name: firstTd.text().trim(),
-          price: tds.length > 1 ? $2(tds[1]).text().trim() : null
+          price: $2(tds[1]).text().trim(),
+          generic: null,
+          category: null,
+          company: null
         };
       }
-      // الاسم العلمي (لون أسود)
-      else if (style.includes('color:Black')) {
+      // اسم علمي — أسود
+      else if (style.includes('color:Black') && current) {
         current.generic = firstTd.text().trim();
       }
-      // التصنيف (لون أخضر)
-      else if (style.includes('color:Green')) {
+      // تصنيف — أخضر
+      else if (style.includes('color:Green') && current) {
         current.category = firstTd.text().trim();
       }
-      // الشركة (لون بنفسجي)
-      else if (style.includes('color:BlueViolet')) {
+      // شركة — بنفسجي
+      else if (style.includes('color:BlueViolet') && current) {
         current.company = firstTd.text().trim();
       }
     });
 
-    if (current.name) results.push(current);
+    if (current) results.push(current);
     return results;
 
   } catch (err) {
