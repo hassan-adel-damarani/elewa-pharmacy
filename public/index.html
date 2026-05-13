@@ -508,31 +508,30 @@ html_content = '''<!DOCTYPE html>
             </div>`;
         }
 
-        function renderDrugCard(d) {
-            return `
-            <div style="background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:2px solid ${d.in_pharmacy ? 'var(--success)' : 'var(--gray-200)'};transition:all 0.3s;cursor:pointer" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
-                <div style="height:180px;background:var(--gray-50);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:16px;overflow:hidden">
-                    ${d.image ? `<img src="${d.image}" style="width:100%;height:100%;object-fit:contain;padding:20px" onerror="this.style.display='none';this.parentElement.innerHTML='💊'">` : '<span style="font-size:4rem">💊</span>'}
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-                    <h4 style="font-size:0.95rem;font-weight:700;color:var(--dark);flex:1;line-height:1.4">${d.name}</h4>
-                    <span style="font-size:1.1rem;font-weight:800;color:var(--primary-dark);margin-right:12px;white-space:nowrap">${d.price} ج.م</span>
-                </div>
-                ${d.generic ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:4px"><i class="fas fa-flask"></i> ${d.generic}</p>` : ''}
-                ${d.company ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:4px"><i class="fas fa-industry"></i> ${d.company}</p>` : ''}
-                ${d.category ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:12px"><i class="fas fa-tag"></i> ${d.category}</p>` : ''}
-                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--gray-100)">
-                    <span style="font-size:0.85rem;font-weight:700;color:${d.in_pharmacy ? 'var(--success)' : 'var(--warning)'}">
-                        <i class="fas ${d.in_pharmacy ? 'fa-check-circle' : 'fa-clock'}"></i>
-                        ${d.in_pharmacy ? 'متوفر في صيدليتنا ✅' : 'اطلبه وسنوفره لك 📦'}
-                    </span>
-                    <a href="https://wa.me/${PHONE}?text=مرحباً، أريد الاستفسار عن: ${encodeURIComponent(d.name)}" target="_blank"
-                        style="background:${d.in_pharmacy ? 'var(--success)' : 'var(--secondary)'};color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-size:0.85rem;font-weight:700">
-                        <i class="fab fa-whatsapp"></i> ${d.in_pharmacy ? 'اطلب الآن' : 'استفسر'}
-                    </a>
-                </div>
-            </div>`;
-        }
+       function renderDrugCard(d) {
+    const arabicName = d.name_ar ? `<div style=\"font-size:0.85rem;color:var(--primary);font-weight:600;margin-bottom:4px\">${d.name_ar}</div>` : '';
+    const description = d.description ? `<p style=\"font-size:0.8rem;color:var(--gray-600);margin-bottom:8px;line-height:1.5\">${d.description}</p>` : '';
+    const symptoms = d.symptoms && d.symptoms.length ? `<div style=\"display:flex;flex-wrap:gap:4px;margin-bottom:12px\">${d.symptoms.map(s => `<span style=\"background:var(--primary-light);color:var(--primary-dark);padding:2px 8px;border-radius:50px;font-size:0.75rem\">${s}</span>`).join('')}</div>` : '';
+    
+    return `
+    <div style=\"background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:2px solid ${d.in_pharmacy ? 'var(--success)' : 'var(--gray-200)'};transition:all 0.3s;cursor:pointer\" onmouseover=\"this.style.transform='translateY(-5px)'\" onmouseout=\"this.style.transform='translateY(0)'\">
+        <div style=\"height:180px;background:var(--gray-50);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:16px;overflow:hidden\">
+            ${d.image ? `<img src=\"${d.image}\" style=\"width:100%;height:100%;object-fit:contain;padding:20px\" onerror=\"this.style.display='none';this.parentElement.innerHTML='💊'\">` : '<span style=\"font-size:4rem\">💊</span>'}
+        </div>
+        <div style=\"display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px\">
+            <div style=\"flex:1\">
+                <h4 style=\"font-size:0.95rem;font-weight:700;color:var(--dark);line-height:1.4\">${d.name}</h4>
+                ${arabicName}
+            </div>
+            <span style=\"font-size:1.1rem;font-weight:800;color:var(--primary-dark);margin-right:12px;white-space:nowrap\">${d.price} ج.م</span>
+        </div>
+        ${description}
+        ${symptoms}
+        ${d.generic ? `<p style=\"font-size:0.8rem;color:var(--gray-500);margin-bottom:4px\"><i class=\"fas fa-flask\"></i> ${d.generic}</p>` : ''}
+        ${d.company ? `<p style=\"font-size:0.8rem;color:var(--gray-500);margin-bottom:4px\"><i class=\"fas fa-industry\"></i> ${d.company}</p>` : ''}
+        <div style=\"display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--gray-100)\">
+            <span style=\"font-size:0.85rem;font-weight:700;color:${d.in_pharmacy ? 'var(--success)' : 'var(--warning)'}\">\n                <i class=\"fas ${d.in_pharmacy ? 'fa-check-circle' : 'fa-clock'}\"></i>\n                ${d.in_pharmacy ? 'متوفر في صيدليتنا ✅' : 'اطلبه وسنوفره لك 📦'}\n            </span>\n            <a href=\"https://wa.me/${PHONE}?text=مرحباً، أريد الاستفسار عن: ${encodeURIComponent(d.name_ar || d.name)}\" target=\"_blank\"\n                style=\"background:${d.in_pharmacy ? 'var(--success)' : 'var(--secondary)'};color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-size:0.85rem;font-weight:700\">\n                <i class=\"fab fa-whatsapp\"></i> ${d.in_pharmacy ? 'اطلب الآن' : 'استفسر'}\n            </a>\n        </div>\n    </div>`;
+}
 
         function renderOffers(offers) {
             const grid = document.getElementById('offersGrid');
