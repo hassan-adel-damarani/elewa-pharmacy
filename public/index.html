@@ -687,8 +687,16 @@ async function searchDrugs() {
   const results = document.getElementById('drugSearchResults');
   results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary)"></i><p style="margin-top:12px;color:var(--gray-500)">جاري البحث...</p></div>';
   try {
-    const res = await fetch(`/api/drug-search?q=${encodeURIComponent(q)}`);
-    const drugs = await res.json();
+   const res = await fetch(`/api/drug-search?q=${encodeURIComponent(q)}`);
+const data = await res.json();
+const drugs = data.results || data;
+const aiMessage = data.message || '';
+if (aiMessage) {
+  results.innerHTML = `<div style="grid-column:1/-1;padding:12px 20px;background:var(--primary-light);border-radius:var(--radius);color:var(--primary-dark);font-weight:600;margin-bottom:8px"><i class="fas fa-robot"></i> ${aiMessage}</div>`;
+} else {
+  results.innerHTML = '';
+}
+
     if (!drugs.length) {
       results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--gray-500)"><i class="fas fa-search fa-2x" style="margin-bottom:12px"></i><p>لا توجد نتائج لـ "' + q + '"</p></div>';
       return;
