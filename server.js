@@ -574,6 +574,12 @@ app.get('/api/test-ai', async (req, res) => {
     res.json({ success: false, error: e.message });
   }
 });
+app.get('/api/test-key', (req, res) => {
+  res.json({ 
+    key_exists: !!process.env.GEMINI_API_KEY,
+    key_length: (process.env.GEMINI_API_KEY || 'AIzaSyCIw3MT16CeCq3pQhb8ew_8axNlQNJ0agw').length
+  });
+});
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
