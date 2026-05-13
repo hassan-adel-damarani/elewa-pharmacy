@@ -287,7 +287,25 @@
             <div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
         </div>
     </section>
-
+<!-- ===== قسم البحث في أدوية مصر ===== -->
+<section style="padding:60px 24px;background:linear-gradient(135deg,#f0fdfa,#ccfbf1)" id="drug-search">
+  <div style="max-width:1280px;margin:0 auto">
+    <div class="section-header">
+      <h3>🔍 ابحث عن أي دواء في مصر</h3>
+      <p>أسعار محدثة من Drug Eye — تعرف هل الدواء متوفر في صيدليتنا أم لا</p>
+    </div>
+    <div style="max-width:600px;margin:0 auto 40px;position:relative">
+      <input type="text" id="drugSearchInput" placeholder="اكتب اسم الدواء بالإنجليزي مثل: paracetamol"
+        style="width:100%;padding:18px 60px 18px 20px;border:2px solid var(--gray-200);border-radius:50px;font-family:inherit;font-size:1rem;box-shadow:var(--shadow-lg);outline:none;transition:all 0.3s"
+        onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--gray-200)'">
+      <button onclick="searchDrugs()" 
+        style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:var(--primary);color:white;border:none;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:1.1rem">
+        <i class="fas fa-search"></i>
+      </button>
+    </div>
+    <div id="drugSearchResults" style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px"></div>
+  </div>
+</section>
     <section class="products-section" id="products">
         <div class="products-header">
             <div class="section-header" style="text-align: right; margin: 0">
@@ -651,6 +669,54 @@
         document.getElementById('productModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
         document.addEventListener('DOMContentLoaded', init);
+        // ===== بحث أدوية مصر =====
+let drugSearchTimer;
+document.getElementById('drugSearchInput').addEventListener('keypress', e => {
+  if (e.key === 'Enter') searchDrugs();
+});
+document.getElementById('drugSearchInput').addEventListener('input', e => {
+  clearTimeout(drugSearchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { document.getElementById('drugSearchResults').innerHTML = ''; return; }
+  drugSearchTimer = setTimeout(() => searchDrugs(), 600);
+});
+
+async function searchDrugs() {
+  const q = document.getElementById('drugSearchInput').value.trim();
+  if (!q) return;
+  const results = document.getElementById('drugSearchResults');
+  results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary)"></i><p style="margin-top:12px;color:var(--gray-500)">جاري البحث...</p></div>';
+  try {
+    const res = await fetch(`/api/drug-search?q=${encodeURIComponent(q)}`);
+    const drugs = await res.json();
+    if (!drugs.length) {
+      results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--gray-500)"><i class="fas fa-search fa-2x" style="margin-bottom:12px"></i><p>لا توجد نتائج لـ "' + q + '"</p></div>';
+      return;
+    }
+    results.innerHTML = drugs.map(d => `
+      <div style="background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:2px solid ${d.in_pharmacy ? 'var(--success)' : 'var(--gray-200)'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <h4 style="font-size:0.95rem;font-weight:700;color:var(--dark);flex:1;line-height:1.4">${d.name}</h4>
+          <span style="font-size:1.3rem;font-weight:800;color:var(--primary-dark);margin-right:12px;white-space:nowrap">${d.price} ج.م</span>
+        </div>
+        ${d.generic ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:6px"><i class="fas fa-flask"></i> ${d.generic}</p>` : ''}
+        ${d.company ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:6px"><i class="fas fa-industry"></i> ${d.company}</p>` : ''}
+        ${d.category ? `<p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:12px"><i class="fas fa-tag"></i> ${d.category}</p>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--gray-100)">
+          <span style="font-size:0.85rem;font-weight:700;color:${d.in_pharmacy ? 'var(--success)' : 'var(--warning)'}">
+            <i class="fas ${d.in_pharmacy ? 'fa-check-circle' : 'fa-clock'}"></i>
+            ${d.in_pharmacy ? 'متوفر في صيدليتنا ✅' : 'اطلبه وسنوفره لك 📦'}
+          </span>
+          <a href="https://wa.me/${PHONE}?text=مرحباً، أريد الاستفسار عن: ${encodeURIComponent(d.name)}" target="_blank"
+            style="background:var(--success);color:white;padding:8px 16px;border-radius:50px;text-decoration:none;font-size:0.85rem;font-weight:700">
+            <i class="fab fa-whatsapp"></i> اطلب
+          </a>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    results.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--danger)"><i class="fas fa-exclamation-circle fa-2x"></i><p style="margin-top:12px">حدث خطأ، حاول مرة أخرى</p></div>';
+  }
+}
     </script>
 </body>
 </html>
