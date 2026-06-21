@@ -126,8 +126,14 @@ html_content = '''<!DOCTYPE html>
         .product-info { padding: 20px; }
         .product-category { font-size: 0.8rem; color: var(--primary); font-weight: 600; margin-bottom: 6px; }
         .product-name { font-size: 1.1rem; font-weight: 700; color: var(--dark); margin-bottom: 8px; line-height: 1.4; }
-        .product-desc { font-size: 0.85rem; color: var(--gray-500); margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .product-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--gray-100); }
+.product-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;          /* ← أضف السطر ده (القياسي) */
+  -webkit-box-orient: vertical;
+  box-orient: vertical;   /* ← أضف السطر ده كمان */
+  overflow: hidden;
+}        .product-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--gray-100); }
         .product-price { font-size: 1.3rem; font-weight: 800; color: var(--primary-dark); }
         .product-price .old { font-size: 0.9rem; color: var(--gray-400); text-decoration: line-through; margin-right: 6px; }
         .stock-status { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; }
@@ -209,7 +215,7 @@ html_content = '''<!DOCTYPE html>
     <div class="top-bar">
         <div class="top-bar-container">
             <div>
-                <i class="fas fa-phone-alt"></i> <a href="tel:+201234567890">+20 123 456 7890</a>
+                <i class="fas fa-phone-alt"></i> <a href="tel:+20 1026354290">+20 1026354290</a>
                 <span style="margin: 0 12px; opacity: 0.5">|</span>
                 <i class="fas fa-clock"></i> مفتوح 24 ساعة
             </div>
@@ -252,7 +258,7 @@ html_content = '''<!DOCTYPE html>
                 <p class="animate-fade-in" style="animation-delay: 0.2s">نقدم لك أفضل الأدوية والمستحضرات الطبية بأسعار منافسة. تصفح منتجاتنا، تحقق من توفرها، واطلب ما تحتاجه بكل سهولة.</p>
                 <div class="hero-buttons animate-fade-in" style="animation-delay: 0.4s">
                     <a href="#products" class="btn btn-primary"><i class="fas fa-shopping-bag"></i> تصفح المنتجات</a>
-                    <a href="https://wa.me/201234567890" target="_blank" class="btn btn-whatsapp"><i class="fab fa-whatsapp"></i> تواصل عبر واتساب</a>
+                    <a href="https://wa.me/201026354290" target="_blank" class="btn btn-whatsapp"><i class="fab fa-whatsapp"></i> تواصل عبر واتساب</a>
                 </div>
             </div>
             <div class="hero-image">
