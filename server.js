@@ -130,7 +130,11 @@ migrateColumn('products', 'manual_disabled',  'INTEGER NOT NULL DEFAULT 0');
 migrateColumn('admins',   'role',             "TEXT NOT NULL DEFAULT 'admin'");
 
 // قفل المنتجات القديمة اللي كانت stock='out' يدوياً
-db.prepare(`UPDATE products SET manual_disabled=1 WHERE stock='out' AND manual_disabled=0`).run();
+// (نتحقق إن عمود stock موجود أولاً — قواعد بيانات جديدة مش فيها العمود ده)
+const hasStockCol = db.prepare('PRAGMA table_info(products)').all().some(c => c.name === 'stock');
+if (hasStockCol) {
+  db.prepare("UPDATE products SET manual_disabled=1 WHERE stock='out' AND manual_disabled=0").run();
+}
 
 // =====================================================================
 // DEFAULT DATA
